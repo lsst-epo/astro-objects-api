@@ -1,106 +1,131 @@
 const { ApolloServer, gql } = require('apollo-server-cloud-functions');
+const Knex = require('knex');
+const { Logging } = require('@google-cloud/logging');
 
-const astroObjects = [
-    {
-        "_RA": "105.374159968744",
-        "_DEC": "3.6632731625161057",
-        "_score": "15.134748520178348",
-        "type": "transient",
-        "distance": "50.43161619195369",
-        "brightness": "93.06833725509975",
-        "id": "1625694851590",
-        "img": "https://placem.at/places?w=600&h=600&random=1",
-        "position": [
-            240,
-            649
-        ]
-    },
-    {
-        "_RA": "108.27861683328074",
-        "_DEC": "3.273173647302116",
-        "_score": "49.7606149305725",
-        "type": "star",
-        "distance": "34.69529616168743",
-        "brightness": "18.02614672442935",
-        "id": "1626898810661",
-        "img": "https://placem.at/places?w=600&h=600&random=1",
-        "position": [
-            252,
-            560
-        ]
-    },
-    {
-        "_RA": "111.82494246845405",
-        "_DEC": "4.749637886041583",
-        "_score": "42.63006448499661",
-        "type": "nebula",
-        "distance": "76.74921695237742",
-        "brightness": "11.559622710926853",
-        "id": "1626898990318",
-        "img": "https://placem.at/places?w=600&h=600&random=1",
-        "position": [
-            208,
-            452
-        ]
-    },
-    {
-        "_RA": "107.53428190352513",
-        "_DEC": "-1.7901666978816166",
-        "_score": "86.77799393870464",
-        "type": "galaxy",
-        "distance": "1.4424391663327096",
-        "brightness": "65.04451381658522",
-        "id": "1626898921305",
-        "img": "https://placem.at/places?w=600&h=600&random=1",
-        "position": [
-            407,
-            583
-        ]
-    },
-    {
-        "_RA": "118.5143652235916",
-        "_DEC": "-9.990185166715662",
-        "_score": "-61.014507311252686",
-        "type": "star",
-        "distance": "61.08139587392798",
-        "brightness": "44.45793463222345",
-        "id": "1626898810659",
-        "img": "https://placem.at/places?w=600&h=600&random=1",
-        "position": [
-            658,
-            255
-        ]
+// Set up a variable to hold our connection pool. It would be safe to
+// initialize this right away, but we defer its instantiation to ease
+// testing different configurations.
+let pool;
+const PROJECT_ID = "skyviewer";
+const LOG_NAME = "astro-object-api"
+// create the logging  client
+const logging = new Logging( { PROJECT_ID } );
+// Selects the log to write to
+const log = logging.logSync(LOG_NAME);
+
+
+const createPoolAndEnsureSchema = async () =>
+  await createPool()
+    .then(pool => {
+      return pool;
+    })
+    .catch(err => {
+      throw err;
+    });
+
+// Initialize Knex, a Node.js SQL query builder library with built-in connection pooling.
+const createPool = async () => {
+    // Configure which instance and what database user to connect with.
+    // Remember - storing secrets in plaintext is potentially unsafe. Consider using
+    // something like https://cloud.google.com/kms/ to help keep secrets secret.
+    const config = {pool: {}};
+  
+    // [START cloud_sql_postgres_knex_limit]
+    // 'max' limits the total number of concurrent connections this pool will keep. Ideal
+    // values for this setting are highly variable on app design, infrastructure, and database.
+    config.pool.max = 5;
+    // 'min' is the minimum number of idle connections Knex maintains in the pool.
+    // Additional connections will be established to meet this value unless the pool is full.
+    config.pool.min = 5;
+    // [END cloud_sql_postgres_knex_limit]
+  
+    // [START cloud_sql_postgres_knex_timeout]
+    // 'acquireTimeoutMillis' is the number of milliseconds before a timeout occurs when acquiring a
+    // connection from the pool. This is slightly different from connectionTimeout, because acquiring
+    // a pool connection does not always involve making a new connection, and may include multiple retries.
+    // when making a connection
+    config.pool.acquireTimeoutMillis = 60000; // 60 seconds
+    // 'createTimeoutMillis` is the maximum number of milliseconds to wait trying to establish an
+    // initial connection before retrying.
+    // After acquireTimeoutMillis has passed, a timeout exception will be thrown.
+    config.pool.createTimeoutMillis = 30000; // 30 seconds
+    // 'idleTimeoutMillis' is the number of milliseconds a connection must sit idle in the pool
+    // and not be checked out before it is automatically closed.
+    config.pool.idleTimeoutMillis = 600000; // 10 minutes
+    // [END cloud_sql_postgres_knex_timeout]
+  
+    // [START cloud_sql_postgres_knex_backoff]
+    // 'knex' uses a built-in retry strategy which does not implement backoff.
+    // 'createRetryIntervalMillis' is how long to idle after failed connection creation before trying again
+    config.pool.createRetryIntervalMillis = 200; // 0.2 seconds
+    // [END cloud_sql_postgres_knex_backoff]
+  
+    if (process.env.DB_HOST) {
+      //if (process.env.DB_ROOT_CERT) {
+        //return createTcpPoolSslCerts(config);
+      //} else {
+        return createTcpPool(config);
+      //}
+    //} else {
+      //return createUnixSocketPool(config);
     }
-]
+  };
+
+const createTcpPool = async config => {
+    // Extract host and port from socket address
+    const dbSocketAddr = process.env.DB_HOST.split(':'); // e.g. '127.0.0.1:5432'
+
+    // Establish a connection to the database
+    return Knex({
+        client: 'pg',
+        connection: {
+        user: process.env.DB_USER, 
+        password: process.env.DB_PASS,
+        database: process.env.DB_NAME,
+        host: dbSocketAddr[0],
+        port: dbSocketAddr[1],
+        }
+    });
+};
 
 // Construct a schema, using GraphQL schema language
 const typeDefs = gql`
     type AstroObject {
-        id: ID!
-        distance: Float!
-        brightness: Float!
-        _RA: Float!
-        _DEC: Float!
-        _score: Float!
-        type: String!
-        img: String!
-        position: [Int!]!
+        id: ID
+        objectId: Float
+        sourceId: Float
+        distance: Float
+        brightness: Float
+        ra: Float
+        dec: Float
+        type: String
     }
 
     type Query {
-        astroObjects(id: ID!): AstroObject
+        astroObjects(objectId: ID): AstroObject
     }
 `;
 
+const getAstroObject = async id => {
+    let res = await pool("astro_objects").where("objectId", id);
+    return res;
+}
 
 
 // Provide resolver functions for your schema fields
 const resolvers = {
   Query: {
-    astroObjects(parent, args, context, info) { 
-        let ob = astroObjects.find(astroObj => astroObj.id == args.id);
-        console.log(ob);
-        return ob;
+    async astroObjects(parent, args, context, info) {
+        // Ensure that there is a connection to the DB
+        pool = pool || (await createPoolAndEnsureSchema()); // blah
+
+        // Validate that the request contains an ID to be used in the lookup query  
+        if(args && args.objectId) {
+            let res = await getAstroObject(parseFloat(args.objectId));
+            return res[0];
+        } else {
+            writeLog("The required arguments were not passed to the astro-object-api schema!", "ERROR")
+        }
     }
   }
 };
@@ -109,5 +134,10 @@ const server = new ApolloServer({
   typeDefs,
   resolvers,
 });
+
+async function writeLog(text, sev) {
+    // Writes the log entry
+    await log.write(log.entry({ resource: { type: "global" }, severity: sev }, text));
+}
 
 exports.handler = server.createHandler();
