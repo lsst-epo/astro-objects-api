@@ -1,0 +1,1 @@
+gcloud functions deploy astro-object-api --runtime nodejs20 --trigger-http --allow-unauthenticated --entry-point handler --region=us-central1 --gen2
