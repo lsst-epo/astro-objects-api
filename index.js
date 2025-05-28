@@ -92,13 +92,15 @@ const createTcpPool = async config => {
 const typeDefs = gql`
     type AstroObject {
         id: ID
-        objectId: Float
-        sourceId: Float
-        distance: Float
-        brightness: Float
-        ra: Float
-        dec: Float
-        type: String
+        objectid: String
+        RAdeg: Float
+        DECdeg: Float
+        umag: Float
+        gmag: Float
+        rmag: Float
+        imag: Float
+        g_r: Float
+        flag: String
     }
 
     type Query {
