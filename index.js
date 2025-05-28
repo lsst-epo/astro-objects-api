@@ -120,9 +120,13 @@ const resolvers = {
     async astroObjects(parent, args, context, info) {
         // Ensure that there is a connection to the DB
         pool = pool || (await createPoolAndEnsureSchema()); // blah
-
+        console.log("TEST");
         // Validate that the request contains an ID to be used in the lookup query  
+<<<<<<< HEAD
         if(args && args.objectId) {
+=======
+        if(args && args.objectid) {
+>>>>>>> 1a10eae (changed objectId to objectid)
             let res = await getAstroObject(parseFloat(args.objectid));
             return res[0];
         } else {
