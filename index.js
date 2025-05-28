@@ -104,12 +104,12 @@ const typeDefs = gql`
     }
 
     type Query {
-        astroObjects(objectId: ID): AstroObject
+        astroObjects(objectid: ID): AstroObject
     }
 `;
 
 const getAstroObject = async id => {
-    let res = await pool("astro_objects").where("objectId", id);
+    let res = await pool("astro_objects").where("objectid", id);
     return res;
 }
 
@@ -123,7 +123,7 @@ const resolvers = {
 
         // Validate that the request contains an ID to be used in the lookup query  
         if(args && args.objectId) {
-            let res = await getAstroObject(parseFloat(args.objectId));
+            let res = await getAstroObject(parseFloat(args.objectid));
             return res[0];
         } else {
             writeLog("The required arguments were not passed to the astro-object-api schema!", "ERROR")
