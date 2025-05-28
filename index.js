@@ -20,6 +20,7 @@ const createPoolAndEnsureSchema = async () =>
       return pool;
     })
     .catch(err => {
+      writeLog(err, "DEBUG");
       throw err;
     });
 
@@ -111,6 +112,7 @@ const typeDefs = gql`
 
 const getAstroObject = async id => {
     let res = await pool("astro_objects").where("objectid", id);
+    writeLog(res, "DEBUG");
     return res;
 }
 
