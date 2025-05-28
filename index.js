@@ -127,7 +127,7 @@ const resolvers = {
 
         // Validate that the request contains an ID to be used in the lookup query  
         if(args && args.objectid) {
-            let res = await getAstroObject(parseFloat(args.objectid));
+            let res = await getAstroObject(args.objectid);
             return res[0];
         } else {
             writeLog("The required arguments were not passed to the astro-object-api schema!", "ERROR")
