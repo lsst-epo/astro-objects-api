@@ -20,6 +20,7 @@ const createPoolAndEnsureSchema = async () =>
       return pool;
     })
     .catch(err => {
+      writeLog(err, "DEBUG");
       throw err;
     });
 
@@ -104,12 +105,13 @@ const typeDefs = gql`
     }
 
     type Query {
-        astroObjects(objectid: ID): AstroObject
+        astroObjects(objectid: String): AstroObject
     }
 `;
 
 const getAstroObject = async id => {
     let res = await pool("astro_objects").where("objectid", id);
+    writeLog(res, "DEBUG");
     return res;
 }
 
@@ -118,9 +120,11 @@ const getAstroObject = async id => {
 const resolvers = {
   Query: {
     async astroObjects(parent, args, context, info) {
+        writeLog(args, "DEBUG");
+
         // Ensure that there is a connection to the DB
         pool = pool || (await createPoolAndEnsureSchema()); // blah
-        console.log("TEST");
+
         // Validate that the request contains an ID to be used in the lookup query  
         if(args && args.objectid) {
             let res = await getAstroObject(parseFloat(args.objectid));
