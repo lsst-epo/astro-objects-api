@@ -20,7 +20,6 @@ const createPoolAndEnsureSchema = async () =>
       return pool;
     })
     .catch(err => {
-      writeLog(err, "DEBUG");
       throw err;
     });
 
@@ -106,34 +105,48 @@ const typeDefs = gql`
 
     type Query {
         astroObjects(objectid: String): AstroObject
+        getRangeOfAstroObjects: [AstroObject!]!
     }
 `;
 
 const getAstroObject = async id => {
     let res = await pool("astro_objects").where("objectid", id);
-    writeLog(res, "DEBUG");
     return res;
 }
 
+const getRangeOfAstroObjects = async (ra, dec, size, mag) => {
+  let res = await pool("astro_objects").select("*");
+  return res;
+}
 
 // Provide resolver functions for your schema fields
 const resolvers = {
   Query: {
     async astroObjects(parent, args, context, info) {
-        writeLog(args, "DEBUG");
+      // Ensure that there is a connection to the DB
+      pool = pool || (await createPoolAndEnsureSchema()); // blah
 
-        // Ensure that there is a connection to the DB
-        pool = pool || (await createPoolAndEnsureSchema()); // blah
+      // Validate that the request contains an ID to be used in the lookup query  
+      if(args && args.objectid) {
+        let res = await getAstroObject(args.objectid);
+        return res[0];
+      } else {
+          writeLog("The required arguments were not passed to the astro-object-api schema!", "ERROR")
+      }
+    },
+    async getRangeOfAstroObjects(parent, args) {
+      // Ensure that there is a connection to the DB
+      pool = pool || (await createPoolAndEnsureSchema()); // blah
 
-        // Validate that the request contains an ID to be used in the lookup query  
-        if(args && args.objectid) {
-            let res = await getAstroObject(args.objectid);
-            return res[0];
-        } else {
-            writeLog("The required arguments were not passed to the astro-object-api schema!", "ERROR")
-        }
+      // Validate that the request contains all the params required for the query
+      if(args && args.ra && args.dec && args.size && args.mag) {
+        let res = await getRangeOfAstroObjects(args.ra, args.dec, args.size, args.mag);
+        return res[0];
+      } else {
+          writeLog("The required arguments were not passed to the astro-object-api schema!", "ERROR")
+      }
     }
-  }
+  },
 };
 
 const server = new ApolloServer({
