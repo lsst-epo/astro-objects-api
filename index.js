@@ -79,11 +79,11 @@ const createTcpPool = async config => {
     return Knex({
         client: 'pg',
         connection: {
-        user: process.env.DB_USER, 
-        password: process.env.DB_PASS,
-        database: process.env.DB_NAME,
-        host: dbSocketAddr[0],
-        port: dbSocketAddr[1],
+          user: process.env.DB_USER, 
+          password: process.env.DB_PASS,
+          database: process.env.DB_NAME,
+          host: dbSocketAddr[0],
+          port: dbSocketAddr[1],
         }
     });
 };
@@ -115,9 +115,14 @@ const getAstroObject = async id => {
 }
 
 const getRangeOfAstroObjects = async (ra, dec, size, mag) => {
-  writeLog("got to getRangeOfAstroObjects", "DEBUG");
-  let res = await pool.select().from("astro_objects");
-  writeLog(JSON.stringify(res), "DEBUG");
+
+  let res = await pool.select().from("astro_objects")
+    .where('RAdeg', '<', ra+size)
+    .andWhere('RAdeg', '>', ra-size)
+    .andWhere('DECdeg', '<', dec+size)
+    .andWhere('DECdeg', '>', dec-size)
+    .andWhere('gmag', '<', mag);
+
   return res;
 }
 
