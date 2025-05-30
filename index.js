@@ -105,7 +105,7 @@ const typeDefs = gql`
 
     type Query {
         astroObjects(objectid: String): AstroObject
-        getRangeOfAstroObjects(ra: Float, dec: Float, size: Float, mag: Float): [AstroObject]
+        getRangeOfAstroObjects(ra: Float, dec: Float, radius: Float, mag: Float): [AstroObject]
     }
 `;
 
@@ -114,14 +114,9 @@ const getAstroObject = async id => {
     return res;
 }
 
-const getRangeOfAstroObjects = async (ra, dec, size, mag) => {
+const getRangeOfAstroObjects = async (ra, dec, radius, mag) => {
 
-  let res = await pool.select().from("astro_objects")
-    .where('RAdeg', '<', ra+size)
-    .andWhere('RAdeg', '>', ra-size)
-    .andWhere('DECdeg', '<', dec+size)
-    .andWhere('DECdeg', '>', dec-size)
-    .andWhere('gmag', '<', mag);
+  let res = await pool.select().from("astro_objects").whereRaw('point(??, ??) <@ circle( point(?, ?), ?) AND "gmag" < ?;', ["RAdeg", "DECdeg", ra, dec, radius, mag]);
 
   return res;
 }
@@ -146,9 +141,8 @@ const resolvers = {
       pool = pool || (await createPoolAndEnsureSchema()); // blah
 
       // Validate that the request contains all the params required for the query
-      if(args && args.ra && args.dec && args.size && args.mag) {
-        writeLog(args);
-        let res = await getRangeOfAstroObjects(args.ra, args.dec, args.size, args.mag);
+      if(args && args.ra && args.dec && args.radius && args.mag) {
+        let res = await getRangeOfAstroObjects(args.ra, args.dec, args.radius, args.mag);
         return res;
       } else {
           writeLog("The required arguments were not passed to the astro-object-api schema!", "ERROR")
