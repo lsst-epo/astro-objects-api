@@ -1,5 +1,6 @@
 const { ApolloServer, gql } = require("apollo-server-cloud-functions");
 const { AuthenticationError } = require("apollo-server-errors");
+const { GraphQLError } = require("graphql");
 const Knex = require("knex");
 const { Logging } = require("@google-cloud/logging");
 
@@ -176,15 +177,35 @@ const resolvers = {
   },
 };
 
+const authCheckPlugin = {
+  async requestDidStart(requestContext) {
+    const req = requestContext.request.http;
+    if (req) {
+      const token = req.headers.get("Authorization");
+      if (!token || token != process.env.API_TOKEN) {
+        writeLog(
+          "Authorization token for astro-objects-api is missing or incorrect",
+          "ERROR"
+        );
+        return {
+          async willSendResponse({ response }) {
+            response.http.status = 403;
+            response.data = null;
+            response.errors = [
+              new GraphQLError("Unable to authorize access to API"),
+            ];
+          },
+        };
+      }
+    }
+    return {};
+  },
+};
+
 const server = new ApolloServer({
   typeDefs,
   resolvers,
-  context: ({ req }) => {
-    const token = req.headers.authorization || "";
-    if (!token || token != process.env.API_TOKEN)
-      throw new AuthenticationError("Unable to authorize access to the API");
-    return token;
-  },
+  plugins: [authCheckPlugin],
 });
 
 async function writeLog(text, sev) {
