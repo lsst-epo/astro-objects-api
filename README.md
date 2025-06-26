@@ -30,7 +30,7 @@ This is a graphQL endpoint. The `astroObjects` schema accepts a single argument 
 Run the following command:
 
 ```bash
-gcloud functions deploy astro-objects-api --runtime nodejs14 --trigger-http --allow-unauthenticated
+sh deploy.sh
 ```
 
 The following environment variables must also be provided in the GCP console:
@@ -39,3 +39,4 @@ The following environment variables must also be provided in the GCP console:
 * DB_PASS
 * DB_NAME
 * DB_HOST
+* API_TOKEN
