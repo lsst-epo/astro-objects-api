@@ -1,5 +1,4 @@
 const { ApolloServer, gql } = require("apollo-server-cloud-functions");
-const { AuthenticationError } = require("apollo-server-errors");
 const { GraphQLError } = require("graphql");
 const Knex = require("knex");
 const { Logging } = require("@google-cloud/logging");
@@ -8,7 +7,7 @@ const { Logging } = require("@google-cloud/logging");
 // initialize this right away, but we defer its instantiation to ease
 // testing different configurations.
 let pool;
-const PROJECT_ID = "skyviewer";
+const PROJECT_ID = process.env.GCP_PROJECT;
 const LOG_NAME = "astro-object-api";
 // create the logging  client
 const logging = new Logging({ PROJECT_ID });
@@ -111,6 +110,7 @@ const typeDefs = gql`
       dec: Float
       radius: Float
       mag: Float
+      limit: Int
     ): [AstroObject]
   }
 `;
@@ -120,11 +120,13 @@ const getAstroObject = async (id) => {
   return res;
 };
 
-const getRangeOfAstroObjects = async (ra, dec, radius, mag) => {
+const getRangeOfAstroObjects = async (ra, dec, radius, mag, limit) => {
   let res = await pool
     .select()
     .from("astro_objects")
-    .whereRaw('point(??, ??) <@ circle( point(?, ?), ?) AND "gmag" < ?;', [
+    .limit(limit)
+    .orderBy("gmag")
+    .whereRaw('point(??, ??) <@ circle( point(?, ?), ?) AND "gmag" < ?', [
       "RAdeg",
       "DECdeg",
       ra,
@@ -132,7 +134,6 @@ const getRangeOfAstroObjects = async (ra, dec, radius, mag) => {
       radius,
       mag,
     ]);
-
   return res;
 };
 
@@ -159,12 +160,13 @@ const resolvers = {
       pool = pool || (await createPoolAndEnsureSchema()); // blah
 
       // Validate that the request contains all the params required for the query
-      if (args && args.ra && args.dec && args.radius && args.mag) {
+      if (args && args.ra && args.dec && args.radius && args.mag && args.mag) {
         let res = await getRangeOfAstroObjects(
           args.ra,
           args.dec,
           args.radius,
-          args.mag
+          args.mag,
+          args.limit
         );
         return res;
       } else {
