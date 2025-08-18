@@ -110,6 +110,12 @@ const typeDefs = gql`
       dec: Float
       radius: Float
       mag: Float
+    ): [AstroObject]
+    getRangeOfAstroObjectsWithLimit(
+      ra: Float
+      dec: Float
+      radius: Float
+      mag: Float
       limit: Int
     ): [AstroObject]
   }
@@ -120,7 +126,23 @@ const getAstroObject = async (id) => {
   return res;
 };
 
-const getRangeOfAstroObjects = async (ra, dec, radius, mag, limit) => {
+const getRangeOfAstroObjects = async (ra, dec, radius, mag) => {
+  let res = await pool
+    .select()
+    .from("astro_objects")
+    .whereRaw('point(??, ??) <@ circle( point(?, ?), ?) AND "gmag" < ?;', [
+      "RAdeg",
+      "DECdeg",
+      ra,
+      dec,
+      radius,
+      mag,
+    ]);
+
+  return res;
+};
+
+const getRangeOfAstroObjectsWithLimit = async (ra, dec, radius, mag, limit) => {
   let res = await pool
     .select()
     .from("astro_objects")
@@ -160,8 +182,35 @@ const resolvers = {
       pool = pool || (await createPoolAndEnsureSchema()); // blah
 
       // Validate that the request contains all the params required for the query
-      if (args && args.ra && args.dec && args.radius && args.mag && args.mag) {
+      if (args && args.ra && args.dec && args.radius && args.mag) {
         let res = await getRangeOfAstroObjects(
+          args.ra,
+          args.dec,
+          args.radius,
+          args.mag
+        );
+        return res;
+      } else {
+        writeLog(
+          "The required arguments were not passed to the astro-object-api schema!",
+          "ERROR"
+        );
+      }
+    },
+    async getRangeOfAstroObjectsWithLimit(parent, args) {
+      // Ensure that there is a connection to the DB
+      pool = pool || (await createPoolAndEnsureSchema()); // blah
+
+      // Validate that the request contains all the params required for the query
+      if (
+        args &&
+        args.ra &&
+        args.dec &&
+        args.radius &&
+        args.mag &&
+        args.limit
+      ) {
+        let res = await getRangeOfAstroObjectsWithLimit(
           args.ra,
           args.dec,
           args.radius,
