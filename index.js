@@ -91,16 +91,16 @@ const createTcpPool = async (config) => {
 // Construct a schema, using GraphQL schema language
 const typeDefs = gql`
   type AstroObject {
-    id: ID
     objectid: String
     RAdeg: Float
     DECdeg: Float
-    umag: Float
     gmag: Float
     rmag: Float
     imag: Float
     g_r: Float
     flag: String
+    catalog_name: String
+    data_release: String
   }
 
   type Query {
